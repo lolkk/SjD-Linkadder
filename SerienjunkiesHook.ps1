@@ -1,11 +1,10 @@
-function Get-SJNewDownloads{
-
 <#
 .SYNOPSIS   
 Get Downloadlink from new episodes of your shows automaticly to a Textfile.
     
 .DESCRIPTION 
 In the same directory as the script you must have the "SJ.csv". You can use the default one from GitHub and configure it.
+Also you need the hoster.csv
 
 .NOTES   
 Name: Get-SJNewDownloads.ps1
@@ -28,15 +27,21 @@ Displays you every new Group, User and new/modified GPO in a table, that was cre
 
 
 [xml]$AllNewEpisodesXML = Invoke-WebRequest http://serienjunkies.org/xml/feeds/episoden.xml
-$MyShowsCSV = Import-Csv D:\SJ.csv -Delimiter ","
-$AllreadyFetchedEpisodesCSV = Import-Csv D:\allreadyFetched.csv -Delimiter ","
-
-
-#########
-$hoster = "/so_"
-#########
+$MyShowsCSV = Import-Csv .\SJ.csv -Delimiter ","
+$AllreadyFetchedEpisodesCSV = Import-Csv .\allreadyFetched.csv -Delimiter ","
+$HosterCSV = Import-Csv .\hoster.csv -Delimiter ","
 
 $NewEpisodes = @()
+$AllreadyFetchedEpisodes = @()
+
+foreach ($Part in $HosterCSV){
+
+if($Part.bol -eq "1") {$hoster = $Part.hostertag}
+
+}
+
+
+
 
 
 foreach ($Show in $MyShowsCSV){
@@ -47,6 +52,11 @@ $NewEpisodes += $AllNewEpisodesXML.rss.channel.item | Where {$_.title -like $Sho
 
 
 $EpisodesToDownload = Compare-Object $AllreadyFetchedEpisodesCSV $NewEpisodes -Property title, link
+
+
+$AllreadyFetchedEpisodes += $EpisodesToDownload
+
+$AllreadyFetchedEpisodes | Export-Csv .\allreadyFetched.csv -Delimiter "," -Append
 
 
 foreach ($Episode in $EpisodesToDownload){
@@ -69,5 +79,4 @@ $DownloadURL = $EpisodePartOfURLAsARRAY | Select-String -Pattern $hoster
 
 Write-Host "$DownloadURL"
 
-}
 }
