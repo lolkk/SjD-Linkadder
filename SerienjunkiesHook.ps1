@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS   
-Get Downloadlink from new episodes of your shows automaticly to a Textfile.
+Get Downloadlinks from new episodes of your shows automaticly to a Textfile.
     
 .DESCRIPTION 
 In the same directory as the script you must have the "SJ.csv". You can use the default one from GitHub and configure it.
@@ -17,46 +17,57 @@ DateUpdated: 2015-05-08
 https://github.com/MoraX92/SJ-Linkadder
 #>
 
-[xml]$AllNewEpisodesXML = Invoke-WebRequest http://serienjunkies.org/xml/feeds/episoden.xml
-$MyShowsCSV = Import-Csv .\SJ.csv -Delimiter ","
-$AllreadyFetchedEpisodesCSV = Import-Csv .\allreadyFetched.csv -Delimiter ","
-$HosterCSV = Import-Csv .\hoster.csv -Delimiter ","
+
+Try {
+    [xml]$AllNewEpisodesXML = Invoke-WebRequest http://serienjunkies.org/xml/feeds/episoden.xml
+    $MyShowsCSV = Import-Csv .\SJ.csv -Delimiter ","
+    $AllreadyFetchedEpisodesCSV = Import-Csv .\allreadyFetched.csv -Delimiter ","
+    $HosterCSV = Import-Csv .\hoster.csv -Delimiter ","
+}
+Catch {
+    Write-Host -ForegroundColor Red "Check your depending files and Internet connection! The Script will exit in 5 seconds."
+    Start-Sleep -s 5
+    exit
+}
 
 $NewEpisodes = @()
-$AllreadyFetchedEpisodes = @()
-$DownloadURLArray = @()
-$EpisodesToDownload = @()
-$EpisodePartOfURLAsARRAY = @()
+
+"#"+(Get-Date) | Out-File .\DownloadLinks.crawljob -Append
 
 foreach ($Part in $HosterCSV){
-if($Part.bol -eq "1") {$hoster = $Part.hostertag}
+    if($Part.bol -eq "1") {$hoster = $Part.hostertag}
 }
 
 foreach ($Show in $MyShowsCSV){
-$NewEpisodes += $AllNewEpisodesXML.rss.channel.item | Where {$_.title -like $Show.name+$Show.quality+$Show.group }
+    $NewEpisodes += $AllNewEpisodesXML.rss.channel.item | Where {$_.title -like "*"+$Show.name+"*"+$Show.quality+"*"+$Show.group}
 }
 
 $EpisodesToDownload = Compare-Object -referenceObject $NewEpisodes -differenceObject $AllreadyFetchedEpisodesCSV -Property title, link | Where {$_.SideIndicator -eq "<="}
 $EpisodesToDownload | Export-Csv .\allreadyFetched.csv -Delimiter "," -Append
 
 foreach ($Episode in $EpisodesToDownload){
-$ShowUrlAsARRAY = @()
 
-$ShowURL = Invoke-WebRequest $Episode.link
-$ShowUrlAsSTRING = $ShowURL.Content | Out-String
-$ShowUrlAsARRAY = $ShowUrlAsSTRING -split "</p>"
-$EpisodeToFind = $Episode.title.Remove(0,10)
-$EpisodePartOfURL = $ShowUrlAsARRAY | Select-String -Pattern $EpisodeToFind
-$EpisodePartOfURLAsARRAY = $EpisodePartOfURL -split '"'
-$DownloadURL = $EpisodePartOfURLAsARRAY | Select-String -Pattern $hoster
-$DownloadURLArray += $DownloadURL
-Write-Host "$DownloadURL"
+    $ShowURL = Invoke-WebRequest $Episode.link -UseBasicParsing
+
+    do{
+        $ShowUrlAsSTRING = $ShowURL.Content | Out-String
+        $ShowUrlAsARRAY = $ShowUrlAsSTRING -split "</p>"
+        $EpisodeToFind = $Episode.title.Remove(0,10)
+        $EpisodePartOfURL = $ShowUrlAsARRAY | Select-String -Pattern $EpisodeToFind
+        $EpisodePartOfURLAsARRAY = $EpisodePartOfURL -split '"'
+        $DownloadURL = $EpisodePartOfURLAsARRAY | Select-String -Pattern $hoster
+    } while (!$DownloadURL)
+
+    "->"+$EpisodeToFind | Out-File .\DownloadLinks.crawljob -Append
+    "text="+$DownloadURL | Out-File .\DownloadLinks.crawljob -Append
+
+    Write-Host -ForegroundColor Green "$DownloadURL"
 
 }
 
-$DownloadURLArray | Where {$_ -ne ""} | Out-File .\DownloadLinks.txt -Append
-$tempTXT = Get-Content .\DownloadLinks.txt
-$tempTXT | Where {$_ -ne ""} | Out-File .\DownloadLinks.txt
+$tempTXT = Get-Content .\DownloadLinks.crawljob
+$tempTXT | Where {$_ -ne ""} | Out-File .\DownloadLinks.crawljob
 
-Write-Host -NoNewLine 'Here are your Links. They were added to "Downloadlinks.txt. Press any key to exit.';
-$null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown');
+Write-Host ""
+Write-Host -ForegroundColor Yellow 'If there are new links and you got no errors they were added to "Downloadlinks.crawljob". The Script will exit in 5 seconds.';
+Start-Sleep -s 5
