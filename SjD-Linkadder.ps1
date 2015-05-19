@@ -12,9 +12,9 @@ Add new episodes from your favorite shows automated to JDownloader 2.
 .NOTES   
 Name: SjD-Linkadder.ps1
 Author: MoraX92
-Version: 0.2
+Version: 0.3
 DateCreated: 2015-05-08
-DateUpdated: 2015-05-15
+DateUpdated: 2015-05-19
 
 .LINK
 https://github.com/MoraX92/SjD-Linkadder
@@ -50,9 +50,8 @@ $EpisodesToDownload | Export-Csv .\allreadyFetched.csv -Delimiter "," -Append
 
 foreach ($Episode in $EpisodesToDownload){
 
-    $ShowURL = Invoke-WebRequest $Episode.link -UseBasicParsing
-
     do{
+        $ShowURL = Invoke-WebRequest $Episode.link -UseBasicParsing
         $ShowUrlAsSTRING = $ShowURL.Content | Out-String
         $ShowUrlAsARRAY = $ShowUrlAsSTRING -split "</p>"
         $EpisodeToFind = $Episode.title.Remove(0,10)
